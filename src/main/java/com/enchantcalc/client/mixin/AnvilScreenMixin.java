@@ -36,6 +36,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
     @Unique private static final int PANEL_OFFSET = 10;
     @Unique private static final int BUTTON_HEIGHT = 16;
     @Unique private static final int MAX_VISIBLE_ENCHANTS = 6;
+    @Unique private static final float SCROLL_SPEED = 0.15f;
 
     @Unique private final List<EnchantmentButton> enchantmentButtons = new ArrayList<>();
     @Unique private final Map<RegistryEntry<Enchantment>, Integer> selectedEnchantments = new HashMap<>();
@@ -49,6 +50,8 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
     @Unique private List<RegistryEntry<Enchantment>> availableEnchantments = new ArrayList<>();
     @Unique private List<InventoryBook> inventoryBooks = new ArrayList<>();
     @Unique private int scrollOffset = 0;
+    @Unique private float smoothScrollOffset = 0.0f;
+    @Unique private float targetScrollOffset = 0.0f;
     @Unique private ItemStack lastAnvilItem = ItemStack.EMPTY;
     @Unique private CalculationResult calculationResult;
     @Unique private int currentStepIndex = 0;
@@ -73,6 +76,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
 
     @Inject(method = "drawBackground", at = @At("TAIL"))
     private void onDrawBackground(DrawContext context, float delta, int mouseX, int mouseY, CallbackInfo ci) {
+        updateSmoothScroll();
         updatePanelVisibility();
         
         if (leftPanelVisible && !isSameItem(lastAnvilItem, handler.getSlot(0).getStack())) {
@@ -86,6 +90,16 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
 
         if (rightPanelVisible && calculationResult != null) {
             renderRightPanel(context);
+        }
+    }
+
+    @Unique
+    private void updateSmoothScroll() {
+        if (Math.abs(smoothScrollOffset - targetScrollOffset) > 0.01f) {
+            smoothScrollOffset += (targetScrollOffset - smoothScrollOffset) * SCROLL_SPEED;
+            if (Math.abs(smoothScrollOffset - targetScrollOffset) < 0.01f) {
+                smoothScrollOffset = targetScrollOffset;
+            }
         }
     }
 
@@ -135,7 +149,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
         int leftPanelX = x - PANEL_WIDTH - PANEL_OFFSET;
         int leftPanelY = y;
 
-        // Search field at the top
+        
         searchField = new SearchFieldWidget(
             textRenderer,
             leftPanelX + 6,
@@ -146,7 +160,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
         );
         addDrawableChild(searchField);
 
-        // Scroll buttons on the right side
+        
         scrollUpButton = ButtonWidget.builder(Text.literal("▲"), btn -> scrollUp())
             .dimensions(leftPanelX + PANEL_WIDTH - 22, leftPanelY + 26, 18, 16)
             .build();
@@ -157,7 +171,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
             .build();
         addDrawableChild(scrollDownButton);
 
-        // Bottom control buttons
+        
         modeButton = ButtonWidget.builder(getModeButtonText(), btn -> cycleMode())
             .dimensions(leftPanelX + 6, leftPanelY + PANEL_HEIGHT - 42, 82, 18)
             .build();
@@ -186,26 +200,33 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
         int leftPanelX = x - PANEL_WIDTH - PANEL_OFFSET;
         int leftPanelY = y;
         
-        // Start after search field (6 + 16 + 4 = 26) and book info text
         int startY = leftPanelY + 46;
-        
-        // Calculate available space for enchantment list (panel height - top area - bottom buttons area)
-        int availableHeight = PANEL_HEIGHT - 46 - 48; // 48 for bottom buttons
+        int availableHeight = PANEL_HEIGHT - 46 - 48;
         int maxButtons = Math.min(MAX_VISIBLE_ENCHANTS, availableHeight / (BUTTON_HEIGHT + 2));
 
-        int visibleCount = Math.min(maxButtons, filtered.size() - scrollOffset);
+        int baseIndex = (int) smoothScrollOffset;
+        float scrollFraction = smoothScrollOffset - baseIndex;
+        int yOffset = (int) (-scrollFraction * (BUTTON_HEIGHT + 2));
+
+        int visibleCount = Math.min(maxButtons + 1, filtered.size() - baseIndex);
         for (int i = 0; i < visibleCount; i++) {
-            int index = scrollOffset + i;
+            int index = baseIndex + i;
             if (index >= filtered.size()) break;
 
             RegistryEntry<Enchantment> enchantment = filtered.get(index);
             EnchantmentInfo info = EnchantmentRegistry.getInfo(enchantment);
             boolean isFromInventory = inventoryBooks.stream().anyMatch(book -> book.enchantment().equals(enchantment));
 
+            int buttonY = startY + (i * (BUTTON_HEIGHT + 2)) + yOffset;
+            
+            if (buttonY < startY - BUTTON_HEIGHT || buttonY > startY + availableHeight) {
+                continue;
+            }
+
             EnchantmentButton button = new EnchantmentButton(
                 leftPanelX + 6,
-                startY + (i * (BUTTON_HEIGHT + 2)),
-                PANEL_WIDTH - 30, // Leave space for scroll buttons
+                buttonY,
+                PANEL_WIDTH - 30,
                 BUTTON_HEIGHT,
                 enchantment,
                 info != null ? info.maxLevel() : 1,
@@ -286,6 +307,8 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
     @Unique
     private void filterEnchantments() {
         scrollOffset = 0;
+        targetScrollOffset = 0.0f;
+        smoothScrollOffset = 0.0f;
         updateEnchantmentButtons();
     }
 
@@ -293,6 +316,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
     private void scrollUp() {
         if (scrollOffset > 0) {
             scrollOffset--;
+            targetScrollOffset = scrollOffset;
             updateEnchantmentButtons();
         }
     }
@@ -302,6 +326,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
         List<RegistryEntry<Enchantment>> filtered = getFilteredEnchantments();
         if (scrollOffset + MAX_VISIBLE_ENCHANTS < filtered.size()) {
             scrollOffset++;
+            targetScrollOffset = scrollOffset;
             updateEnchantmentButtons();
         }
     }
@@ -423,11 +448,11 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
         int leftPanelX = x - PANEL_WIDTH - PANEL_OFFSET;
         int leftPanelY = y;
 
-        // Draw background panel
+        
         context.fill(leftPanelX, leftPanelY, leftPanelX + PANEL_WIDTH, leftPanelY + PANEL_HEIGHT, 0xDD000000);
         context.drawBorder(leftPanelX, leftPanelY, PANEL_WIDTH, PANEL_HEIGHT, 0xFF8B8B8B);
 
-        // Draw book count info below search field
+        
         int inventoryBookCount = inventoryBooks.size();
         List<RegistryEntry<Enchantment>> filtered = getFilteredEnchantments();
         String infoText;
@@ -448,13 +473,13 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
         int rightPanelX = x + backgroundWidth + PANEL_OFFSET;
         int rightPanelY = y;
 
-        // Draw background panel
+        
         context.fill(rightPanelX, rightPanelY, rightPanelX + PANEL_WIDTH, rightPanelY + PANEL_HEIGHT, 0xDD000000);
         context.drawBorder(rightPanelX, rightPanelY, PANEL_WIDTH, PANEL_HEIGHT, 0xFF8B8B8B);
 
         if (calculationResult == null) return;
 
-        // Draw header with total cost
+        
         String totalText = "Total: " + calculationResult.getTotalLevels() + " levels";
         context.drawTextWithShadow(textRenderer, Text.literal(totalText), 
             rightPanelX + 6, rightPanelY + 6, 0xFFFFFF55);
@@ -465,14 +490,14 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
             return;
         }
 
-        // Draw current step indicator
+        
         String stepText = "Step " + (currentStepIndex + 1) + " / " + calculationResult.getSteps().size();
         context.drawTextWithShadow(textRenderer, Text.literal(stepText), 
             rightPanelX + 6, rightPanelY + 20, 0xFFCCCCCC);
 
         CalculationResult.Step currentStep = calculationResult.getSteps().get(currentStepIndex);
         
-        // Draw action description
+        
         int textY = rightPanelY + 36;
         context.drawTextWithShadow(textRenderer, Text.literal("Action:"), 
             rightPanelX + 6, textY, 0xFFAAAAAA);
@@ -485,7 +510,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
             textY += 10;
         }
 
-        // Draw cost details
+        
         textY += 6;
         context.drawTextWithShadow(textRenderer, 
             Text.literal("Cost: " + currentStep.getLevels() + " levels"), 
@@ -596,7 +621,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
             int leftPanelX = x - PANEL_WIDTH - PANEL_OFFSET;
             int leftPanelY = y;
             
-            // Check if mouse is over the left panel
+            
             if (mouseX >= leftPanelX && mouseX <= leftPanelX + PANEL_WIDTH &&
                 mouseY >= leftPanelY && mouseY <= leftPanelY + PANEL_HEIGHT) {
                 
@@ -615,7 +640,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        // If search field is focused, handle the input there and prevent anvil text box interference
+        
         if (searchField != null && searchField.isFocused()) {
             if (searchField.keyPressed(keyCode, scanCode, modifiers)) {
                 return true;
@@ -627,7 +652,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
 
     @Override
     public boolean charTyped(char chr, int modifiers) {
-        // If search field is focused, handle typing there
+        
         if (searchField != null && searchField.isFocused()) {
             if (searchField.charTyped(chr, modifiers)) {
                 return true;

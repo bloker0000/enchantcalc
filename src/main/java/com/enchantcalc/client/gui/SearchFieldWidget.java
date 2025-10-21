@@ -33,7 +33,7 @@ public class SearchFieldWidget extends TextFieldWidget {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        // Only handle key presses when focused
+        
         if (this.isFocused()) {
             return super.keyPressed(keyCode, scanCode, modifiers);
         }
@@ -42,7 +42,7 @@ public class SearchFieldWidget extends TextFieldWidget {
 
     @Override
     public boolean charTyped(char chr, int modifiers) {
-        // Only handle typing when focused
+        
         if (this.isFocused()) {
             return super.charTyped(chr, modifiers);
         }
