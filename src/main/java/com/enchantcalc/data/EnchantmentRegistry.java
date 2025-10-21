@@ -20,7 +20,6 @@ public class EnchantmentRegistry {
     private static boolean initialized = false;
 
     public static void initialize() {
-        // Initialization is now lazy - called when needed
     }
 
     private static void ensureInitialized() {

@@ -11,7 +11,8 @@ public class SearchFieldWidget extends TextFieldWidget {
     public SearchFieldWidget(TextRenderer textRenderer, int x, int y, int width, int height, Runnable onTextChanged) {
         super(textRenderer, x, y, width, height, Text.literal("Search"));
         this.onTextChanged = onTextChanged;
-        setPlaceholder(Text.literal("Search enchantments...").styled(style -> style.withColor(0x888888)));
+        setPlaceholder(Text.literal("Search...").styled(style -> style.withColor(0x888888)));
+        setMaxLength(32);
     }
 
     @Override
@@ -28,5 +29,23 @@ public class SearchFieldWidget extends TextFieldWidget {
         if (onTextChanged != null) {
             onTextChanged.run();
         }
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        // Only handle key presses when focused
+        if (this.isFocused()) {
+            return super.keyPressed(keyCode, scanCode, modifiers);
+        }
+        return false;
+    }
+
+    @Override
+    public boolean charTyped(char chr, int modifiers) {
+        // Only handle typing when focused
+        if (this.isFocused()) {
+            return super.charTyped(chr, modifiers);
+        }
+        return false;
     }
 }
