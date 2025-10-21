@@ -392,22 +392,34 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
 
     @Unique
     private void calculate() {
-        if (selectedEnchantments.isEmpty()) return;
+        if (selectedEnchantments.isEmpty()) {
+            System.out.println("EnchantCalc: No enchantments selected");
+            return;
+        }
 
         ItemStack anvilItem = handler.getSlot(0).getStack();
-        if (anvilItem.isEmpty()) return;
+        if (anvilItem.isEmpty()) {
+            System.out.println("EnchantCalc: No item in anvil");
+            return;
+        }
 
         List<EnchantmentCombination> combinations = selectedEnchantments.entrySet().stream()
             .map(entry -> new EnchantmentCombination(entry.getKey(), entry.getValue()))
             .collect(Collectors.toList());
 
+        System.out.println("EnchantCalc: Calculating for " + combinations.size() + " enchantments");
+        
         try {
             calculationResult = EnchantmentCalculator.calculate(anvilItem, combinations, optimizationMode);
             currentStepIndex = 0;
             rightPanelVisible = true;
             setupRightPanelButtons();
             persistState();
+            System.out.println("EnchantCalc: Calculation successful! Steps: " + 
+                (calculationResult != null ? calculationResult.getSteps().size() : 0));
         } catch (Exception e) {
+            System.err.println("EnchantCalc: Calculation failed: " + e.getMessage());
+            e.printStackTrace();
             calculationResult = null;
             rightPanelVisible = false;
             clearRightPanelButtons();
@@ -678,13 +690,9 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
     private void clearInterface() {
         clearLeftPanelWidgets();
         clearRightPanelButtons();
-        selectedEnchantments.clear();
         availableEnchantments.clear();
         inventoryBooks.clear();
         scrollOffset = 0;
-        calculationResult = null;
-        currentStepIndex = 0;
-        rightPanelVisible = false;
     }
 
     @Override
