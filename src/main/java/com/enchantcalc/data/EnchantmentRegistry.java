@@ -20,10 +20,17 @@ public class EnchantmentRegistry {
     private static boolean initialized = false;
 
     public static void initialize() {
+        // Initialization is now lazy - called when needed
+    }
+
+    private static void ensureInitialized() {
         if (initialized) return;
         
         MinecraftClient client = MinecraftClient.getInstance();
-        if (client.world == null) return;
+        if (client.world == null) {
+            EnchantCalcClient.LOGGER.warn("Cannot initialize enchantment registry: not in a world");
+            return;
+        }
         
         ENCHANTMENT_DATA.clear();
         
@@ -82,10 +89,12 @@ public class EnchantmentRegistry {
     }
 
     public static EnchantmentInfo getInfo(RegistryEntry<Enchantment> enchantment) {
+        ensureInitialized();
         return ENCHANTMENT_DATA.get(enchantment);
     }
 
     public static List<RegistryEntry<Enchantment>> getApplicableEnchantments(ItemStack stack) {
+        ensureInitialized();
         if (stack.isEmpty()) return List.of();
         
         return ENCHANTMENT_DATA.keySet().stream()
@@ -94,6 +103,7 @@ public class EnchantmentRegistry {
     }
 
     public static List<InventoryBook> scanInventoryForBooks(MinecraftClient client) {
+        ensureInitialized();
         List<InventoryBook> books = new ArrayList<>();
         
         if (client.player == null) return books;
