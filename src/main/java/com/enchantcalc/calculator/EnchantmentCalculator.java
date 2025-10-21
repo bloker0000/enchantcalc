@@ -14,18 +14,16 @@ public class EnchantmentCalculator {
 
     public static CalculationResult calculate(ItemStack targetItem, List<EnchantmentCombination> enchantments, OptimizationMode mode) {
         String itemName = targetItem.getName().getString();
-        List<EnchantItem> items = new ArrayList<>();
+        EnchantItem baseItem = new EnchantItem(itemName, 0, true, 0);
         
-        items.add(new EnchantItem(itemName, 0, true, 0));
-        
+        List<EnchantItem> books = new ArrayList<>();
         for (EnchantmentCombination combo : enchantments) {
             int bookCost = getBookEnchantmentCost(combo.enchantment(), combo.level());
             String enchantName = Enchantment.getName(combo.enchantment(), combo.level()).getString();
-            String bookName = "Book (" + enchantName + ")";
-            items.add(new EnchantItem(bookName, bookCost, false, 0, List.of(enchantName)));
+            books.add(new EnchantItem(enchantName, bookCost, false, 0, List.of(enchantName)));
         }
         
-        TreeResult result = findOptimalTree(items, mode);
+        TreeResult result = findOptimalSequence(baseItem, books, mode);
         return new CalculationResult(result.steps, result.totalLevels, result.totalExperience);
     }
 
@@ -33,6 +31,57 @@ public class EnchantmentCalculator {
         EnchantmentInfo info = EnchantmentRegistry.getInfo(enchantment);
         int weight = info != null ? info.weight() : 1;
         return weight * level;
+    }
+
+    private static TreeResult findOptimalSequence(EnchantItem baseItem, List<EnchantItem> books, OptimizationMode mode) {
+        if (books.isEmpty()) {
+            return new TreeResult(new ArrayList<>(), 0, 0);
+        }
+        
+        books.sort((a, b) -> Integer.compare(b.enchantmentCost, a.enchantmentCost));
+        
+        List<CalculationResult.Step> steps = new ArrayList<>();
+        EnchantItem currentItem = baseItem;
+        
+        for (EnchantItem book : books) {
+            int enchantmentCost = book.enchantmentCost;
+            int priorWorkPenalty = 0;
+            
+            if (currentItem.anvilCost < ANVIL_COST_MULTIPLIERS.length) {
+                priorWorkPenalty += ANVIL_COST_MULTIPLIERS[currentItem.anvilCost];
+            } else {
+                priorWorkPenalty += 63;
+            }
+            
+            if (book.anvilCost < ANVIL_COST_MULTIPLIERS.length) {
+                priorWorkPenalty += ANVIL_COST_MULTIPLIERS[book.anvilCost];
+            } else {
+                priorWorkPenalty += 63;
+            }
+            
+            int levelCost = enchantmentCost + priorWorkPenalty;
+            int experienceCost = calculateExperience(levelCost);
+            
+            List<String> newEnchantments = new ArrayList<>(currentItem.enchantments);
+            newEnchantments.addAll(book.enchantments);
+            
+            String description = "Combine " + currentItem.name + " with " + book.name + " (book)";
+            
+            steps.add(new CalculationResult.Step(
+                description,
+                levelCost,
+                experienceCost,
+                priorWorkPenalty
+            ));
+            
+            int newAnvilCost = Math.max(currentItem.anvilCost, book.anvilCost) + 1;
+            currentItem = new EnchantItem(currentItem.name, 0, true, newAnvilCost, newEnchantments);
+        }
+        
+        int totalLevels = steps.stream().mapToInt(CalculationResult.Step::getLevels).sum();
+        int totalExperience = steps.stream().mapToInt(CalculationResult.Step::getExperience).sum();
+        
+        return new TreeResult(steps, totalLevels, totalExperience);
     }
 
     private static TreeResult findOptimalTree(List<EnchantItem> items, OptimizationMode mode) {
