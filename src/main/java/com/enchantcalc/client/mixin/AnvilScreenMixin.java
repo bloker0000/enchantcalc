@@ -71,8 +71,8 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
         }
     }
 
-    @Inject(method = "render", at = @At("TAIL"))
-    private void onRender(DrawContext context, int mouseX, int mouseY, float delta, CallbackInfo ci) {
+    @Inject(method = "drawBackground", at = @At("TAIL"))
+    private void onDrawBackground(DrawContext context, float delta, int mouseX, int mouseY, CallbackInfo ci) {
         updatePanelVisibility();
         
         if (leftPanelVisible && !isSameItem(lastAnvilItem, handler.getSlot(0).getStack())) {
