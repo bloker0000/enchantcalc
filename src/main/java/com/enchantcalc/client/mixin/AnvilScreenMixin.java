@@ -196,12 +196,18 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
             if (leftPanelVisible) {
                 setupLeftPanel();
             } else {
-                clearInterface();
+                clearLeftPanelWidgets();
+                availableEnchantments.clear();
+                inventoryBooks.clear();
+                scrollOffset = 0;
             }
         }
         
         if (calculationResult != null) {
             rightPanelVisible = true;
+            if (prevStepButton == null && nextStepButton == null && calculationResult.getSteps().size() > 1) {
+                setupRightPanelButtons();
+            }
         }
     }
 

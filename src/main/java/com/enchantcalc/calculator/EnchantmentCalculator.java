@@ -133,15 +133,18 @@ public class EnchantmentCalculator {
         List<String> newEnchantments = new ArrayList<>(left.enchantments);
         newEnchantments.addAll(right.enchantments);
         
+        String leftDesc = left.isItem ? left.name : (left.enchantments.isEmpty() ? left.name : String.join(" + ", left.enchantments));
+        String rightDesc = right.isItem ? right.name : (right.enchantments.isEmpty() ? right.name : String.join(" + ", right.enchantments));
+        
         String description;
         if (left.isItem && right.isItem) {
             description = "Combine " + left.name + " with " + right.name;
         } else if (left.isItem) {
-            description = "Combine " + left.name + " with " + right.name + " (book)";
+            description = "Combine " + left.name + " with " + rightDesc + " (book)";
         } else if (right.isItem) {
-            description = "Combine " + right.name + " (book) with " + left.name;
+            description = "Combine " + leftDesc + " (book) with " + right.name;
         } else {
-            description = "Combine " + left.name + " (book) with " + right.name + " (book)";
+            description = "Combine " + leftDesc + " (book) with " + rightDesc + " (book)";
         }
         
         if (tooExpensive) {
