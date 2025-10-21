@@ -1,0 +1,12 @@
+{
+	"required": true,
+	"minVersion": "0.8",
+	"package": "com.enchantcalc.client.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"AnvilScreenMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

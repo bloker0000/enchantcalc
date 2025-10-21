@@ -1,0 +1,25 @@
+{
+	"schemaVersion": 1,
+	"id": "enchantcalc",
+	"version": "${version}",
+	"name": "EnchantCalc",
+	"description": "Advanced enchantment calculator with smart inventory integration",
+	"authors": ["EnchantCalc Team"],
+	"contact": {},
+	"license": "MIT",
+	"icon": "assets/enchantcalc/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"client": [
+			"com.enchantcalc.EnchantCalcClient"
+		]
+	},
+	"mixins": [
+		"enchantcalc.mixins.json"
+	],
+	"depends": {
+		"fabricloader": ">=0.16.0",
+		"fabric-api": "*",
+		"minecraft": "~1.21.8"
+	}
+}
