@@ -516,23 +516,4 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
         currentStepIndex = 0;
         rightPanelVisible = false;
     }
-
-    @Inject(method = "mouseScrolled", at = @At("HEAD"), cancellable = true)
-    private void onMouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount, CallbackInfo ci) {
-        if (!leftPanelVisible) return;
-
-        int leftPanelX = x - PANEL_WIDTH - PANEL_OFFSET;
-        int leftPanelY = y;
-
-        if (mouseX >= leftPanelX && mouseX <= leftPanelX + PANEL_WIDTH &&
-            mouseY >= leftPanelY && mouseY <= leftPanelY + PANEL_HEIGHT) {
-            
-            if (verticalAmount > 0) {
-                scrollUp();
-            } else if (verticalAmount < 0) {
-                scrollDown();
-            }
-            ci.cancel();
-        }
-    }
 }
