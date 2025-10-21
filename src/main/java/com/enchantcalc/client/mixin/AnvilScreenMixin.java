@@ -68,11 +68,6 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
         }
     }
 
-    @Inject(method = "removed", at = @At("HEAD"))
-    private void onRemoved(CallbackInfo ci) {
-        clearInterface();
-    }
-
     @Inject(method = "drawForeground", at = @At("TAIL"))
     private void onDrawForeground(DrawContext context, int mouseX, int mouseY, CallbackInfo ci) {
         updatePanelVisibility();
