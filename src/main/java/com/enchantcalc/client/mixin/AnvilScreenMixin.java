@@ -37,6 +37,11 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
     @Unique private static final int BUTTON_HEIGHT = 16;
     @Unique private static final int MAX_VISIBLE_ENCHANTS = 6;
     @Unique private static final float SCROLL_SPEED = 0.15f;
+    
+    @Unique private static CalculationResult persistedCalculationResult = null;
+    @Unique private static int persistedCurrentStepIndex = 0;
+    @Unique private static OptimizationMode persistedOptimizationMode = OptimizationMode.LEVELS;
+    @Unique private static final Map<RegistryEntry<Enchantment>, Integer> persistedSelectedEnchantments = new HashMap<>();
 
     @Unique private final List<EnchantmentButton> enchantmentButtons = new ArrayList<>();
     @Unique private final Map<RegistryEntry<Enchantment>, Integer> selectedEnchantments = new HashMap<>();
@@ -68,6 +73,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
 
     @Inject(method = "setup", at = @At("TAIL"))
     private void onSetup(CallbackInfo ci) {
+        restorePersistedState();
         updatePanelVisibility();
         if (leftPanelVisible) {
             setupLeftPanel();
@@ -91,16 +97,93 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
         if (rightPanelVisible && calculationResult != null) {
             renderRightPanel(context);
         }
+        
+        renderSelectedEnchantmentsOverlay(context);
     }
 
     @Unique
+    private void restorePersistedState() {
+        selectedEnchantments.clear();
+        selectedEnchantments.putAll(persistedSelectedEnchantments);
+        calculationResult = persistedCalculationResult;
+        currentStepIndex = persistedCurrentStepIndex;
+        optimizationMode = persistedOptimizationMode;
+        
+        if (calculationResult != null) {
+            rightPanelVisible = true;
+        }
+    }
+    
+    @Unique
+    private void persistState() {
+        persistedSelectedEnchantments.clear();
+        persistedSelectedEnchantments.putAll(selectedEnchantments);
+        persistedCalculationResult = calculationResult;
+        persistedCurrentStepIndex = currentStepIndex;
+        persistedOptimizationMode = optimizationMode;
+    }
+    
+    @Unique
     private void updateSmoothScroll() {
-        if (Math.abs(smoothScrollOffset - targetScrollOffset) > 0.01f) {
+        boolean wasAnimating = Math.abs(smoothScrollOffset - targetScrollOffset) > 0.01f;
+        
+        if (wasAnimating) {
             smoothScrollOffset += (targetScrollOffset - smoothScrollOffset) * SCROLL_SPEED;
             if (Math.abs(smoothScrollOffset - targetScrollOffset) < 0.01f) {
                 smoothScrollOffset = targetScrollOffset;
             }
+            recreateVisibleButtons();
         }
+    }
+    
+    @Unique
+    private void recreateVisibleButtons() {
+        enchantmentButtons.forEach(this::remove);
+        enchantmentButtons.clear();
+
+        List<RegistryEntry<Enchantment>> filtered = getFilteredEnchantments();
+        int leftPanelX = x - PANEL_WIDTH - PANEL_OFFSET;
+        int leftPanelY = y;
+        int startY = leftPanelY + 46;
+        int availableHeight = PANEL_HEIGHT - 46 - 48;
+        int maxButtons = Math.min(MAX_VISIBLE_ENCHANTS, availableHeight / (BUTTON_HEIGHT + 2));
+
+        int baseIndex = (int) smoothScrollOffset;
+        float scrollFraction = smoothScrollOffset - baseIndex;
+        int yOffset = (int) (-scrollFraction * (BUTTON_HEIGHT + 2));
+
+        int visibleCount = Math.min(maxButtons + 1, filtered.size() - baseIndex);
+        for (int i = 0; i < visibleCount; i++) {
+            int index = baseIndex + i;
+            if (index >= filtered.size()) break;
+
+            RegistryEntry<Enchantment> enchantment = filtered.get(index);
+            EnchantmentInfo info = EnchantmentRegistry.getInfo(enchantment);
+            boolean isFromInventory = inventoryBooks.stream().anyMatch(book -> book.enchantment().equals(enchantment));
+
+            int buttonY = startY + (i * (BUTTON_HEIGHT + 2)) + yOffset;
+
+            EnchantmentButton button = new EnchantmentButton(
+                leftPanelX + 6,
+                buttonY,
+                PANEL_WIDTH - 30,
+                BUTTON_HEIGHT,
+                enchantment,
+                info != null ? info.maxLevel() : 1,
+                isFromInventory,
+                this::onEnchantmentLevelChanged
+            );
+
+            if (selectedEnchantments.containsKey(enchantment)) {
+                button.setLevel(selectedEnchantments.get(enchantment));
+            }
+
+            enchantmentButtons.add(button);
+            addDrawableChild(button);
+        }
+
+        updateEnchantmentCompatibility();
+        updateScrollButtons();
     }
 
     @Unique
@@ -115,6 +198,10 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
             } else {
                 clearInterface();
             }
+        }
+        
+        if (calculationResult != null) {
+            rightPanelVisible = true;
         }
     }
 
@@ -193,57 +280,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
 
     @Unique
     private void updateEnchantmentButtons() {
-        enchantmentButtons.forEach(this::remove);
-        enchantmentButtons.clear();
-
-        List<RegistryEntry<Enchantment>> filtered = getFilteredEnchantments();
-        int leftPanelX = x - PANEL_WIDTH - PANEL_OFFSET;
-        int leftPanelY = y;
-        
-        int startY = leftPanelY + 46;
-        int availableHeight = PANEL_HEIGHT - 46 - 48;
-        int maxButtons = Math.min(MAX_VISIBLE_ENCHANTS, availableHeight / (BUTTON_HEIGHT + 2));
-
-        int baseIndex = (int) smoothScrollOffset;
-        float scrollFraction = smoothScrollOffset - baseIndex;
-        int yOffset = (int) (-scrollFraction * (BUTTON_HEIGHT + 2));
-
-        int visibleCount = Math.min(maxButtons + 1, filtered.size() - baseIndex);
-        for (int i = 0; i < visibleCount; i++) {
-            int index = baseIndex + i;
-            if (index >= filtered.size()) break;
-
-            RegistryEntry<Enchantment> enchantment = filtered.get(index);
-            EnchantmentInfo info = EnchantmentRegistry.getInfo(enchantment);
-            boolean isFromInventory = inventoryBooks.stream().anyMatch(book -> book.enchantment().equals(enchantment));
-
-            int buttonY = startY + (i * (BUTTON_HEIGHT + 2)) + yOffset;
-            
-            if (buttonY < startY - BUTTON_HEIGHT || buttonY > startY + availableHeight) {
-                continue;
-            }
-
-            EnchantmentButton button = new EnchantmentButton(
-                leftPanelX + 6,
-                buttonY,
-                PANEL_WIDTH - 30,
-                BUTTON_HEIGHT,
-                enchantment,
-                info != null ? info.maxLevel() : 1,
-                isFromInventory,
-                this::onEnchantmentLevelChanged
-            );
-
-            if (selectedEnchantments.containsKey(enchantment)) {
-                button.setLevel(selectedEnchantments.get(enchantment));
-            }
-
-            enchantmentButtons.add(button);
-            addDrawableChild(button);
-        }
-
-        updateEnchantmentCompatibility();
-        updateScrollButtons();
+        recreateVisibleButtons();
     }
 
     @Unique
@@ -299,9 +336,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
 
         updateEnchantmentCompatibility();
         calculateButton.active = !selectedEnchantments.isEmpty();
-        
-        rightPanelVisible = false;
-        calculationResult = null;
+        persistState();
     }
 
     @Unique
@@ -317,7 +352,6 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
         if (scrollOffset > 0) {
             scrollOffset--;
             targetScrollOffset = scrollOffset;
-            updateEnchantmentButtons();
         }
     }
 
@@ -327,7 +361,6 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
         if (scrollOffset + MAX_VISIBLE_ENCHANTS < filtered.size()) {
             scrollOffset++;
             targetScrollOffset = scrollOffset;
-            updateEnchantmentButtons();
         }
     }
 
@@ -373,6 +406,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
             currentStepIndex = 0;
             rightPanelVisible = true;
             setupRightPanelButtons();
+            persistState();
         } catch (Exception e) {
             calculationResult = null;
             rightPanelVisible = false;
@@ -435,6 +469,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
         calculateButton.active = false;
         clearRightPanelButtons();
         updateEnchantmentButtons();
+        persistState();
     }
 
     @Unique
@@ -554,12 +589,48 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
 
         return lines;
     }
+    
+    @Unique
+    private void renderSelectedEnchantmentsOverlay(DrawContext context) {
+        if (selectedEnchantments.isEmpty()) return;
+        
+        int centerX = x + backgroundWidth / 2;
+        int topY = y - 30;
+        
+        String counterText = "Selected: " + selectedEnchantments.size() + " enchantment" + (selectedEnchantments.size() == 1 ? "" : "s");
+        int counterWidth = textRenderer.getWidth(counterText);
+        
+        context.fill(centerX - counterWidth / 2 - 4, topY - 2, centerX + counterWidth / 2 + 4, topY + 10, 0xDD000000);
+        context.drawCenteredTextWithShadow(textRenderer, Text.literal(counterText), centerX, topY, 0xFFFFFF55);
+        
+        int enchantY = topY + 14;
+        int currentX = centerX;
+        int lineWidth = 0;
+        List<String> enchantTexts = new ArrayList<>();
+        
+        for (Map.Entry<RegistryEntry<Enchantment>, Integer> entry : selectedEnchantments.entrySet()) {
+            String enchantName = Enchantment.getName(entry.getKey(), entry.getValue()).getString();
+            enchantTexts.add(enchantName);
+            lineWidth += textRenderer.getWidth(enchantName) + 8;
+        }
+        
+        int startX = centerX - lineWidth / 2;
+        currentX = startX;
+        
+        for (String enchantText : enchantTexts) {
+            int textWidth = textRenderer.getWidth(enchantText);
+            context.fill(currentX - 2, enchantY - 2, currentX + textWidth + 2, enchantY + 10, 0xDD000000);
+            context.drawTextWithShadow(textRenderer, Text.literal(enchantText), currentX, enchantY, 0xFF55FF55);
+            currentX += textWidth + 8;
+        }
+    }
 
     @Unique
     private void previousStep() {
         if (currentStepIndex > 0) {
             currentStepIndex--;
             updateRightPanelButtons();
+            persistState();
         }
     }
 
@@ -568,6 +639,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
         if (calculationResult != null && currentStepIndex < calculationResult.getSteps().size() - 1) {
             currentStepIndex++;
             updateRightPanelButtons();
+            persistState();
         }
     }
 
