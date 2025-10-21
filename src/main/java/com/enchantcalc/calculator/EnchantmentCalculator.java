@@ -103,12 +103,14 @@ public class EnchantmentCalculator {
         List<Integer> contributions = tree.getLeafContributions();
         List<EnchantItem> optimized = new ArrayList<>();
         
+        int itemCount = Math.min(sorted.size(), contributions.size());
+        
         Map<Integer, EnchantItem> placementMap = new HashMap<>();
-        for (int i = 0; i < sorted.size(); i++) {
+        for (int i = 0; i < itemCount; i++) {
             placementMap.put(contributions.get(i), sorted.get(i));
         }
         
-        List<Integer> sortedContributions = new ArrayList<>(contributions);
+        List<Integer> sortedContributions = new ArrayList<>(contributions.subList(0, itemCount));
         Collections.sort(sortedContributions);
         
         for (int contrib : sortedContributions) {
