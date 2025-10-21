@@ -30,12 +30,14 @@ public class CalculationResult {
         private final int levels;
         private final int experience;
         private final int priorWorkPenalty;
+        private final boolean tooExpensive;
 
-        public Step(String description, int levels, int experience, int priorWorkPenalty) {
+        public Step(String description, int levels, int experience, int priorWorkPenalty, boolean tooExpensive) {
             this.description = description;
             this.levels = levels;
             this.experience = experience;
             this.priorWorkPenalty = priorWorkPenalty;
+            this.tooExpensive = tooExpensive;
         }
 
         public String getDescription() {
@@ -52,6 +54,10 @@ public class CalculationResult {
 
         public int getPriorWorkPenalty() {
             return priorWorkPenalty;
+        }
+        
+        public boolean isTooExpensive() {
+            return tooExpensive;
         }
     }
 }

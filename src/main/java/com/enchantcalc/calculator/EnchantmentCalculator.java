@@ -40,48 +40,129 @@ public class EnchantmentCalculator {
         
         books.sort((a, b) -> Integer.compare(b.enchantmentCost, a.enchantmentCost));
         
-        List<CalculationResult.Step> steps = new ArrayList<>();
-        EnchantItem currentItem = baseItem;
+        EnchantItem mostExpensive = books.remove(0);
         
-        for (EnchantItem book : books) {
-            int enchantmentCost = book.enchantmentCost;
-            int priorWorkPenalty = 0;
-            
-            if (currentItem.anvilCost < ANVIL_COST_MULTIPLIERS.length) {
-                priorWorkPenalty += ANVIL_COST_MULTIPLIERS[currentItem.anvilCost];
-            } else {
-                priorWorkPenalty += 63;
+        EnchantItem currentItem = mergeItems(baseItem, mostExpensive, true);
+        List<CalculationResult.Step> steps = new ArrayList<>();
+        steps.add(currentItem.lastStep);
+        
+        List<EnchantItem> allItems = new ArrayList<>(books);
+        allItems.add(currentItem);
+        
+        TreeResult result = findBestCombination(allItems, steps, mode);
+        return result;
+    }
+    
+    private static TreeResult findBestCombination(List<EnchantItem> items, List<CalculationResult.Step> existingSteps, OptimizationMode mode) {
+        if (items.size() == 1) {
+            EnchantItem finalItem = items.get(0);
+            if (!finalItem.isItem) {
+                return new TreeResult(new ArrayList<>(), Integer.MAX_VALUE, Integer.MAX_VALUE);
             }
-            
-            if (book.anvilCost < ANVIL_COST_MULTIPLIERS.length) {
-                priorWorkPenalty += ANVIL_COST_MULTIPLIERS[book.anvilCost];
-            } else {
-                priorWorkPenalty += 63;
-            }
-            
-            int levelCost = enchantmentCost + priorWorkPenalty;
-            int experienceCost = calculateExperience(levelCost);
-            
-            List<String> newEnchantments = new ArrayList<>(currentItem.enchantments);
-            newEnchantments.addAll(book.enchantments);
-            
-            String description = "Combine " + currentItem.name + " with " + book.name + " (book)";
-            
-            steps.add(new CalculationResult.Step(
-                description,
-                levelCost,
-                experienceCost,
-                priorWorkPenalty
-            ));
-            
-            int newAnvilCost = Math.max(currentItem.anvilCost, book.anvilCost) + 1;
-            currentItem = new EnchantItem(currentItem.name, 0, true, newAnvilCost, newEnchantments);
+            int totalLevels = existingSteps.stream().mapToInt(CalculationResult.Step::getLevels).sum();
+            int totalExperience = existingSteps.stream().mapToInt(CalculationResult.Step::getExperience).sum();
+            return new TreeResult(existingSteps, totalLevels, totalExperience);
         }
         
-        int totalLevels = steps.stream().mapToInt(CalculationResult.Step::getLevels).sum();
-        int totalExperience = steps.stream().mapToInt(CalculationResult.Step::getExperience).sum();
+        TreeResult bestResult = null;
+        int bestCost = Integer.MAX_VALUE;
         
-        return new TreeResult(steps, totalLevels, totalExperience);
+        for (int i = 0; i < items.size(); i++) {
+            for (int j = 0; j < items.size(); j++) {
+                if (i == j) continue;
+                
+                EnchantItem left = items.get(i);
+                EnchantItem right = items.get(j);
+                
+                if (!left.isItem && right.isItem) continue;
+                
+                try {
+                    EnchantItem merged = mergeItems(left, right, false);
+                    
+                    List<EnchantItem> newItems = new ArrayList<>();
+                    for (int k = 0; k < items.size(); k++) {
+                        if (k != i && k != j) {
+                            newItems.add(items.get(k));
+                        }
+                    }
+                    newItems.add(merged);
+                    
+                    List<CalculationResult.Step> newSteps = new ArrayList<>(existingSteps);
+                    newSteps.add(merged.lastStep);
+                    
+                    TreeResult result = findBestCombination(newItems, newSteps, mode);
+                    
+                    int cost = switch (mode) {
+                        case LEVELS -> result.totalLevels;
+                        case EXPERIENCE -> result.totalExperience;
+                        case PRIOR_WORK -> result.steps.stream().mapToInt(CalculationResult.Step::getPriorWorkPenalty).sum();
+                    };
+                    
+                    if (cost < bestCost) {
+                        bestCost = cost;
+                        bestResult = result;
+                    }
+                } catch (Exception e) {
+                }
+            }
+        }
+        
+        return bestResult != null ? bestResult : new TreeResult(new ArrayList<>(), Integer.MAX_VALUE, Integer.MAX_VALUE);
+    }
+    
+    private static EnchantItem mergeItems(EnchantItem left, EnchantItem right, boolean isInitialMerge) {
+        int enchantmentCost = right.enchantmentCost;
+        int priorWorkPenalty = 0;
+        
+        if (left.anvilCost < ANVIL_COST_MULTIPLIERS.length) {
+            priorWorkPenalty += ANVIL_COST_MULTIPLIERS[left.anvilCost];
+        } else {
+            priorWorkPenalty += 63;
+        }
+        
+        if (right.anvilCost < ANVIL_COST_MULTIPLIERS.length) {
+            priorWorkPenalty += ANVIL_COST_MULTIPLIERS[right.anvilCost];
+        } else {
+            priorWorkPenalty += 63;
+        }
+        
+        int levelCost = enchantmentCost + priorWorkPenalty;
+        int experienceCost = calculateExperience(levelCost);
+        boolean tooExpensive = levelCost > MAX_ANVIL_COST;
+        
+        List<String> newEnchantments = new ArrayList<>(left.enchantments);
+        newEnchantments.addAll(right.enchantments);
+        
+        String description;
+        if (left.isItem && right.isItem) {
+            description = "Combine " + left.name + " with " + right.name;
+        } else if (left.isItem) {
+            description = "Combine " + left.name + " with " + right.name + " (book)";
+        } else if (right.isItem) {
+            description = "Combine " + right.name + " (book) with " + left.name;
+        } else {
+            description = "Combine " + left.name + " (book) with " + right.name + " (book)";
+        }
+        
+        if (tooExpensive) {
+            description += " - TOO EXPENSIVE!";
+        }
+        
+        CalculationResult.Step step = new CalculationResult.Step(
+            description,
+            levelCost,
+            experienceCost,
+            priorWorkPenalty,
+            tooExpensive
+        );
+        
+        int newAnvilCost = Math.max(left.anvilCost, right.anvilCost) + 1;
+        boolean newIsItem = left.isItem || right.isItem;
+        String newName = newIsItem ? (left.isItem ? left.name : right.name) : "Combined Book";
+        
+        EnchantItem result = new EnchantItem(newName, left.enchantmentCost + right.enchantmentCost, newIsItem, newAnvilCost, newEnchantments);
+        result.lastStep = step;
+        return result;
     }
 
     private static TreeResult findOptimalTree(List<EnchantItem> items, OptimizationMode mode) {
@@ -195,17 +276,17 @@ public class EnchantmentCalculator {
         }
         
         int mergeCost = enchantmentCost + priorWorkPenalty;
-        
-        if (mergeCost > MAX_ANVIL_COST) {
-            throw new RuntimeException("Too expensive");
-        }
+        boolean tooExpensive = mergeCost > MAX_ANVIL_COST;
         
         String leftName = leftNode.item.name;
         String rightName = rightNode.item.name;
         int experience = calculateExperience(mergeCost);
         String description = "Combine " + leftName + " + " + rightName;
+        if (tooExpensive) {
+            description += " - TOO EXPENSIVE!";
+        }
         
-        steps.add(new CalculationResult.Step(description, mergeCost, experience, priorWorkPenalty));
+        steps.add(new CalculationResult.Step(description, mergeCost, experience, priorWorkPenalty, tooExpensive));
         
         String combinedName = leftNode.item.isItem ? leftNode.item.name : "Combined Item";
         List<String> combinedEnchantments = new ArrayList<>();
@@ -235,6 +316,7 @@ public class EnchantmentCalculator {
         boolean isItem;
         int anvilCost;
         List<String> enchantments;
+        CalculationResult.Step lastStep;
 
         EnchantItem(String name, int enchantmentCost, boolean isItem, int anvilCost) {
             this(name, enchantmentCost, isItem, anvilCost, new ArrayList<>());

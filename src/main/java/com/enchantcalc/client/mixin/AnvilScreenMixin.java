@@ -526,10 +526,18 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
 
         if (calculationResult == null) return;
 
+        boolean hasImpossibleSteps = calculationResult.getSteps().stream()
+            .anyMatch(CalculationResult.Step::isTooExpensive);
         
         String totalText = "Total: " + calculationResult.getTotalLevels() + " levels";
+        int totalColor = hasImpossibleSteps ? 0xFFFF5555 : 0xFFFFFF55;
         context.drawTextWithShadow(textRenderer, Text.literal(totalText), 
-            rightPanelX + 6, rightPanelY + 6, 0xFFFFFF55);
+            rightPanelX + 6, rightPanelY + 6, totalColor);
+        
+        if (hasImpossibleSteps) {
+            context.drawTextWithShadow(textRenderer, Text.literal("⚠ IMPOSSIBLE"), 
+                rightPanelX + 6 + textRenderer.getWidth(totalText) + 6, rightPanelY + 6, 0xFFFF5555);
+        }
 
         if (calculationResult.getSteps().isEmpty()) {
             context.drawTextWithShadow(textRenderer, Text.literal("No solution found"), 
@@ -544,24 +552,30 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
 
         CalculationResult.Step currentStep = calculationResult.getSteps().get(currentStepIndex);
         
+        if (currentStep.isTooExpensive()) {
+            context.drawTextWithShadow(textRenderer, Text.literal("⚠ WARNING: TOO EXPENSIVE! ⚠"), 
+                rightPanelX + 6, rightPanelY + 36, 0xFFFF5555);
+        }
         
-        int textY = rightPanelY + 36;
+        int textY = rightPanelY + (currentStep.isTooExpensive() ? 52 : 36);
         context.drawTextWithShadow(textRenderer, Text.literal("Action:"), 
             rightPanelX + 6, textY, 0xFFAAAAAA);
         textY += 12;
 
         List<String> wrappedDesc = wrapText(currentStep.getDescription(), PANEL_WIDTH - 16);
         for (String line : wrappedDesc) {
+            int color = currentStep.isTooExpensive() ? 0xFFFF5555 : 0xFFFFFFFF;
             context.drawTextWithShadow(textRenderer, Text.literal(line), 
-                rightPanelX + 10, textY, 0xFFFFFFFF);
+                rightPanelX + 10, textY, color);
             textY += 10;
         }
 
         
         textY += 6;
+        int costColor = currentStep.isTooExpensive() ? 0xFFFF5555 : 0xFFFFFF55;
         context.drawTextWithShadow(textRenderer, 
             Text.literal("Cost: " + currentStep.getLevels() + " levels"), 
-            rightPanelX + 6, textY, 0xFFFFFF55);
+            rightPanelX + 6, textY, costColor);
         textY += 11;
         context.drawTextWithShadow(textRenderer, 
             Text.literal("XP: " + currentStep.getExperience()), 
