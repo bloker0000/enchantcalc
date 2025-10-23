@@ -4,7 +4,7 @@ Find the cheapest way to combine enchantments. This mod calculates the optimal o
 
 ---
 
-### This mod is heavily inspired by the [Enchantment Calculator mod](https://modrinth.com/mod/enchantment-calculator) created by [FanyaOff](https://modrinth.com/user/FanyaOff). All credit goes to them for the original concept and design.
+**This mod is heavily inspired by the [Enchantment Calculator mod](https://modrinth.com/mod/enchantment-calculator) created by [FanyaOff](https://modrinth.com/user/FanyaOff). All credit goes to them for the original concept and design.**
 
 ---
 
