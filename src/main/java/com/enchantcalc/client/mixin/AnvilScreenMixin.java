@@ -31,11 +31,15 @@ import java.util.stream.Collectors;
 
 @Mixin(AnvilScreen.class)
 public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler> {
-    @Unique private static final int PANEL_WIDTH = 180;
-    @Unique private static final int PANEL_HEIGHT = 200;
+    @Unique private int dynamicPanelWidth = 180;
+    @Unique private int dynamicPanelHeight = 200;
+    @Unique private static final int MIN_PANEL_WIDTH = 140;
+    @Unique private static final int MAX_PANEL_WIDTH = 220;
+    @Unique private static final int MIN_PANEL_HEIGHT = 160;
+    @Unique private static final int MAX_PANEL_HEIGHT = 280;
     @Unique private static final int PANEL_OFFSET = 10;
     @Unique private static final int BUTTON_HEIGHT = 16;
-    @Unique private static final int MAX_VISIBLE_ENCHANTS = 6;
+    @Unique private int maxVisibleEnchants = 6;
     @Unique private static final float SCROLL_SPEED = 0.15f;
     
     @Unique private static CalculationResult persistedCalculationResult = null;
@@ -73,11 +77,25 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
 
     @Inject(method = "setup", at = @At("TAIL"))
     private void onSetup(CallbackInfo ci) {
+        calculateDynamicPanelSizes();
         restorePersistedState();
         updatePanelVisibility();
         if (leftPanelVisible) {
             setupLeftPanel();
         }
+    }
+    
+    @Unique
+    private void calculateDynamicPanelSizes() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        int screenWidth = client.getWindow().getScaledWidth();
+        int screenHeight = client.getWindow().getScaledHeight();
+        
+        dynamicPanelWidth = Math.max(MIN_PANEL_WIDTH, Math.min(MAX_PANEL_WIDTH, screenWidth / 6));
+        dynamicPanelHeight = Math.max(MIN_PANEL_HEIGHT, Math.min(MAX_PANEL_HEIGHT, screenHeight - 80));
+        
+        int availableScrollHeight = dynamicPanelHeight - 42 - 48;
+        maxVisibleEnchants = Math.max(3, Math.min(10, availableScrollHeight / (BUTTON_HEIGHT + 2)));
     }
 
     @Inject(method = "drawBackground", at = @At("TAIL"))
@@ -92,6 +110,8 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
 
         if (leftPanelVisible) {
             renderLeftPanel(context);
+            applyEnchantmentButtonClipping(context, mouseX, mouseY, delta);
+            renderScrollMask(context);
         }
 
         if (rightPanelVisible && calculationResult != null) {
@@ -99,6 +119,26 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
         }
         
         renderSelectedEnchantmentsOverlay(context);
+    }
+    
+    @Unique
+    private void applyEnchantmentButtonClipping(DrawContext context, int mouseX, int mouseY, float delta) {
+        if (enchantmentButtons.isEmpty()) return;
+        
+        int leftPanelX = x - dynamicPanelWidth - PANEL_OFFSET;
+        int leftPanelY = y;
+        int clipX = leftPanelX + 6;
+        int clipY = leftPanelY + 42;
+        int clipWidth = dynamicPanelWidth - 30;
+        int clipHeight = dynamicPanelHeight - 42 - 48;
+        
+        context.enableScissor(clipX, clipY, clipX + clipWidth, clipY + clipHeight);
+        
+        for (EnchantmentButton button : enchantmentButtons) {
+            button.render(context, mouseX, mouseY, delta);
+        }
+        
+        context.disableScissor();
     }
 
     @Unique
@@ -142,17 +182,17 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
         enchantmentButtons.clear();
 
         List<RegistryEntry<Enchantment>> filtered = getFilteredEnchantments();
-        int leftPanelX = x - PANEL_WIDTH - PANEL_OFFSET;
+        int leftPanelX = x - dynamicPanelWidth - PANEL_OFFSET;
         int leftPanelY = y;
-        int startY = leftPanelY + 46;
-        int availableHeight = PANEL_HEIGHT - 46 - 48;
-        int maxButtons = Math.min(MAX_VISIBLE_ENCHANTS, availableHeight / (BUTTON_HEIGHT + 2));
+        int startY = leftPanelY + 42;
+        int availableHeight = dynamicPanelHeight - 42 - 48;
+        int maxButtons = Math.min(maxVisibleEnchants, availableHeight / (BUTTON_HEIGHT + 2));
 
         int baseIndex = (int) smoothScrollOffset;
         float scrollFraction = smoothScrollOffset - baseIndex;
         int yOffset = (int) (-scrollFraction * (BUTTON_HEIGHT + 2));
 
-        int visibleCount = Math.min(maxButtons + 1, filtered.size() - baseIndex);
+        int visibleCount = Math.min(maxButtons + 2, filtered.size() - baseIndex);
         for (int i = 0; i < visibleCount; i++) {
             int index = baseIndex + i;
             if (index >= filtered.size()) break;
@@ -166,7 +206,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
             EnchantmentButton button = new EnchantmentButton(
                 leftPanelX + 6,
                 buttonY,
-                PANEL_WIDTH - 30,
+                dynamicPanelWidth - 30,
                 BUTTON_HEIGHT,
                 enchantment,
                 info != null ? info.maxLevel() : 1,
@@ -179,7 +219,6 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
             }
 
             enchantmentButtons.add(button);
-            addDrawableChild(button);
         }
 
         updateEnchantmentCompatibility();
@@ -239,7 +278,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
             return Enchantment.getName(a, 1).getString().compareTo(Enchantment.getName(b, 1).getString());
         });
 
-        int leftPanelX = x - PANEL_WIDTH - PANEL_OFFSET;
+        int leftPanelX = x - dynamicPanelWidth - PANEL_OFFSET;
         int leftPanelY = y;
 
         
@@ -247,7 +286,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
             textRenderer,
             leftPanelX + 6,
             leftPanelY + 6,
-            PANEL_WIDTH - 12,
+            dynamicPanelWidth - 12,
             16,
             this::filterEnchantments
         );
@@ -255,29 +294,29 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
 
         
         scrollUpButton = ButtonWidget.builder(Text.literal("▲"), btn -> scrollUp())
-            .dimensions(leftPanelX + PANEL_WIDTH - 22, leftPanelY + 26, 18, 16)
+            .dimensions(leftPanelX + dynamicPanelWidth - 22, leftPanelY + 26, 18, 16)
             .build();
         addDrawableChild(scrollUpButton);
 
         scrollDownButton = ButtonWidget.builder(Text.literal("▼"), btn -> scrollDown())
-            .dimensions(leftPanelX + PANEL_WIDTH - 22, leftPanelY + PANEL_HEIGHT - 64, 18, 16)
+            .dimensions(leftPanelX + dynamicPanelWidth - 22, leftPanelY + dynamicPanelHeight - 64, 18, 16)
             .build();
         addDrawableChild(scrollDownButton);
 
         
         modeButton = ButtonWidget.builder(getModeButtonText(), btn -> cycleMode())
-            .dimensions(leftPanelX + 6, leftPanelY + PANEL_HEIGHT - 42, 82, 18)
+            .dimensions(leftPanelX + 6, leftPanelY + dynamicPanelHeight - 42, 82, 18)
             .build();
         addDrawableChild(modeButton);
 
         calculateButton = ButtonWidget.builder(Text.literal("Calculate"), btn -> calculate())
-            .dimensions(leftPanelX + 92, leftPanelY + PANEL_HEIGHT - 42, 82, 18)
+            .dimensions(leftPanelX + 92, leftPanelY + dynamicPanelHeight - 42, 82, 18)
             .build();
         calculateButton.active = false;
         addDrawableChild(calculateButton);
 
         clearButton = ButtonWidget.builder(Text.literal("Clear"), btn -> clearSelections())
-            .dimensions(leftPanelX + 6, leftPanelY + PANEL_HEIGHT - 22, PANEL_WIDTH - 12, 16)
+            .dimensions(leftPanelX + 6, leftPanelY + dynamicPanelHeight - 22, dynamicPanelWidth - 12, 16)
             .build();
         addDrawableChild(clearButton);
 
@@ -328,7 +367,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
             scrollUpButton.active = scrollOffset > 0;
         }
         if (scrollDownButton != null) {
-            scrollDownButton.active = scrollOffset + MAX_VISIBLE_ENCHANTS < filtered.size();
+            scrollDownButton.active = scrollOffset + maxVisibleEnchants < filtered.size();
         }
     }
 
@@ -364,7 +403,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
     @Unique
     private void scrollDown() {
         List<RegistryEntry<Enchantment>> filtered = getFilteredEnchantments();
-        if (scrollOffset + MAX_VISIBLE_ENCHANTS < filtered.size()) {
+        if (scrollOffset + maxVisibleEnchants < filtered.size()) {
             scrollOffset++;
             targetScrollOffset = scrollOffset;
         }
@@ -440,7 +479,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
         
         int rightPanelX = x + backgroundWidth + PANEL_OFFSET;
         int rightPanelY = y;
-        int navY = rightPanelY + PANEL_HEIGHT - 26;
+        int navY = rightPanelY + dynamicPanelHeight - 26;
         
         prevStepButton = ButtonWidget.builder(Text.literal("◄ Prev"), btn -> previousStep())
             .dimensions(rightPanelX + 6, navY, 82, 20)
@@ -498,12 +537,12 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
 
     @Unique
     private void renderLeftPanel(DrawContext context) {
-        int leftPanelX = x - PANEL_WIDTH - PANEL_OFFSET;
+        int leftPanelX = x - dynamicPanelWidth - PANEL_OFFSET;
         int leftPanelY = y;
 
         
-        context.fill(leftPanelX, leftPanelY, leftPanelX + PANEL_WIDTH, leftPanelY + PANEL_HEIGHT, 0xDD000000);
-        context.drawBorder(leftPanelX, leftPanelY, PANEL_WIDTH, PANEL_HEIGHT, 0xFF8B8B8B);
+        context.fill(leftPanelX, leftPanelY, leftPanelX + dynamicPanelWidth, leftPanelY + dynamicPanelHeight, 0xDD000000);
+        context.drawBorder(leftPanelX, leftPanelY, dynamicPanelWidth, dynamicPanelHeight, 0xFF8B8B8B);
 
         
         int inventoryBookCount = inventoryBooks.size();
@@ -520,6 +559,16 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
         context.drawTextWithShadow(textRenderer, Text.literal(infoText), 
             leftPanelX + 6, leftPanelY + 28, 0xFFAAAAAA);
     }
+    
+    @Unique
+    private void renderScrollMask(DrawContext context) {
+        int leftPanelX = x - dynamicPanelWidth - PANEL_OFFSET;
+        int leftPanelY = y;
+        
+        context.fill(leftPanelX, leftPanelY + 6, leftPanelX + dynamicPanelWidth, leftPanelY + 42, 0xDD000000);
+        
+        context.fill(leftPanelX, leftPanelY + dynamicPanelHeight - 48, leftPanelX + dynamicPanelWidth, leftPanelY + dynamicPanelHeight, 0xDD000000);
+    }
 
     @Unique
     private void renderRightPanel(DrawContext context) {
@@ -527,8 +576,8 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
         int rightPanelY = y;
 
         
-        context.fill(rightPanelX, rightPanelY, rightPanelX + PANEL_WIDTH, rightPanelY + PANEL_HEIGHT, 0xDD000000);
-        context.drawBorder(rightPanelX, rightPanelY, PANEL_WIDTH, PANEL_HEIGHT, 0xFF8B8B8B);
+        context.fill(rightPanelX, rightPanelY, rightPanelX + dynamicPanelWidth, rightPanelY + dynamicPanelHeight, 0xDD000000);
+        context.drawBorder(rightPanelX, rightPanelY, dynamicPanelWidth, dynamicPanelHeight, 0xFF8B8B8B);
 
         if (calculationResult == null) return;
 
@@ -568,7 +617,7 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
             rightPanelX + 6, textY, 0xFFAAAAAA);
         textY += 12;
 
-        List<String> wrappedDesc = wrapText(currentStep.getDescription(), PANEL_WIDTH - 16);
+        List<String> wrappedDesc = wrapText(currentStep.getDescription(), dynamicPanelWidth - 16);
         for (String line : wrappedDesc) {
             int color = currentStep.isTooExpensive() ? 0xFFFF5555 : 0xFFFFFFFF;
             context.drawTextWithShadow(textRenderer, Text.literal(line), 
@@ -718,12 +767,12 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
         if (leftPanelVisible) {
-            int leftPanelX = x - PANEL_WIDTH - PANEL_OFFSET;
+            int leftPanelX = x - dynamicPanelWidth - PANEL_OFFSET;
             int leftPanelY = y;
             
             
-            if (mouseX >= leftPanelX && mouseX <= leftPanelX + PANEL_WIDTH &&
-                mouseY >= leftPanelY && mouseY <= leftPanelY + PANEL_HEIGHT) {
+            if (mouseX >= leftPanelX && mouseX <= leftPanelX + dynamicPanelWidth &&
+                mouseY >= leftPanelY && mouseY <= leftPanelY + dynamicPanelHeight) {
                 
                 if (verticalAmount > 0) {
                     scrollUp();
@@ -737,7 +786,28 @@ public abstract class AnvilScreenMixin extends ForgingScreen<AnvilScreenHandler>
         
         return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
     }
-
+    
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (leftPanelVisible && button == 0) {
+            int leftPanelY = y;
+            int clipY = leftPanelY + 42;
+            int clipHeight = dynamicPanelHeight - 42 - 48;
+            
+            for (EnchantmentButton enchantButton : enchantmentButtons) {
+                int buttonY = enchantButton.getY();
+                if (buttonY + BUTTON_HEIGHT >= clipY && buttonY <= clipY + clipHeight) {
+                    if (enchantButton.isMouseOver(mouseX, mouseY)) {
+                        enchantButton.onClick(mouseX, mouseY);
+                        return true;
+                    }
+                }
+            }
+        }
+        
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+    
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         

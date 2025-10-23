@@ -1,6 +1,7 @@
 plugins {
 	id 'fabric-loom' version '1.10-SNAPSHOT'
 	id 'maven-publish'
+	id 'com.modrinth.minotaur' version '2.+'
 }
 
 version = project.mod_version
@@ -40,3 +41,22 @@ jar {
 		rename { "${it}_${project.archives_base_name}"}
 	}
 }
+
+modrinth {
+	token = System.getenv("MODRINTH_TOKEN")
+	projectId = "enchantcalc"
+	versionNumber = project.version
+	versionName = "EnchantCalc ${project.version}"
+	versionType = "release"
+	uploadFile = remapJar
+	gameVersions = ["1.21.8"]
+	loaders = ["fabric"]
+	changelog = file("CHANGELOG.md").exists() ? file("CHANGELOG.md").text : "No changelog provided"
+	syncBodyFrom = rootProject.file("README.md").text
+	
+	dependencies {
+		required.project "fabric-api"
+	}
+}
+
+tasks.modrinth.dependsOn(tasks.modrinthSyncBody)

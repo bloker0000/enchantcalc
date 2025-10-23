@@ -1,35 +1,82 @@
-# EnchantCalc
+# Enchant Calculator
 
-A Minecraft mod that helps you combine enchantments in the best order.
+Find the cheapest way to combine enchantments. This mod calculates the optimal order to avoid wasting levels and hitting "too expensive" errors.
 
-## What This Mod Does
+---
 
-When you open an anvil and put an item in it, two panels appear on the sides of the screen.
+### This mod is heavily inspired by the [Enchantment Calculator mod](https://modrinth.com/mod/enchantment-calculator) created by [FanyaOff](https://modrinth.com/user/FanyaOff). All credit goes to them for the original concept and design.
 
-The left panel shows all the enchantments you can add to your item. You can pick which ones you want and what level. If you have enchanted books in your inventory, the mod shows you which ones.
+---
 
-Click the Calculate button and the right panel tells you exactly what to do. It shows you step by step how to combine your items to get all the enchantments you want. The mod figures out the cheapest way to do it.
+## Overview
 
-## The Three Modes
+Enchant Calculator is a client-side mod that solves one of Minecraft's most annoying problems: combining multiple enchantments without wasting experience levels or hitting the anvil's "too expensive" limit.
 
-The mode button changes how the mod calculates the best order:
+When you place an item in an anvil, the mod automatically shows you exactly how to combine your enchantments in the most efficient order. No more guessing, no more wasted levels, and no more frustration.
 
-**Levels** - Uses the least amount of levels total. This is what most people want.
+_Yes, i know the icon is AI, i suck at design.._
 
-**XP** - Uses the least amount of experience points. Similar to Levels but calculates differently.
+## How to Use
 
-**Work** - Avoids the "too expensive" error. Use this when combining lots of enchantments and the anvil keeps saying it costs too much.
+**Step 1:** Place your item in an anvil
 
-## How It Works
+Two panels appear on the sides of your screen.
 
-The mod looks at every possible way you could combine your items. There are usually hundreds or thousands of different orders. It tests all of them and picks the best one based on which mode you picked.
+**Step 2:** Select enchantments from the left panel
 
-It automatically finds enchantments from other mods too. Any enchantment in the game will work.
+The left panel displays all available enchantments you can add to your item. If you have enchanted books in your inventory, the mod shows which ones you have. Pick the enchantments you want and set their levels.
+
+![Select Enchants](https://cdn.modrinth.com/data/cached_images/00802df47a9db1b62988d8a283cf385b8f4c2721.png)
+
+**Step 3:** Click Calculate
+
+The mod instantly analyzes hundreds or thousands of possible combination orders to find the best one.
+
+**Step 4:** Follow the steps
+
+The right panel shows you the exact order to combine your items. Each step tells you what to put in the anvil and where. Use the arrow buttons to move between steps.
+
+![Calculate](https://cdn.modrinth.com/data/cached_images/ee84f626bfea14cdb826340d829ff48c09af7691.png)
+
+## Optimization Modes
+
+The mod offers three different ways to calculate the best order:
+
+**Levels Mode** - Minimizes the total number of experience levels you spend. This is what most players want and is the default mode.
+
+**XP Mode** - Minimizes the total experience points instead of levels. Because higher levels cost more XP per level, this mode sometimes gives different results than Levels mode.
+
+**Work Mode** - Focuses on avoiding the "too expensive" error. When you want to add many enchantments to one item, the anvil can refuse to work because the cost is over 39 levels. This mode finds combinations that stay under the limit.
+
+Switch between modes using the mode button. The mod recalculates instantly when you change modes.
+
+## Features
+
+- Works with any enchantment in the game, including those from other mods
+- Automatically detects enchanted books in your inventory
+- Shows step by step instructions
+- Tests all possible combination orders
+- Three optimization modes
+- Client-sided
+
+## Technical Details
+
+The mod uses a smart algorithm to find the optimal combination order. For each set of enchantments you select, it generates all possible ways to combine them, calculates the cost for each way, and picks the cheapest one.
+
+The algorithm accounts for:
+- Enchantment rarity and level costs
+- Prior work penalties from previous anvil uses
+- The order items are placed in the anvil (left vs right slot)
+- Compatibility between different enchantments (custom enchantment mods)
+
+This means you always get the mathematically best solution for your chosen mode.
+
+## Requirements
+
+Minecraft 1.21.8
+Fabric Loader
+Fabric API
 
 ## Compatibility
 
-Works with Minecraft 1.21.8 on Fabric. Needs Fabric API installed.
-
-## License
-
-MIT
+Works with Minecraft 1.21.8 on Fabric. Requires Fabric API.
