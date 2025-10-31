@@ -4,7 +4,9 @@
 	"version": "${version}",
 	"name": "EnchantCalc",
 	"description": "Find the cheapest way to combine enchantments on your items",
-	"authors": ["Wolftifact"],
+	"authors": [
+		"Wolftifact"
+	],
 	"contact": {},
 	"license": "MIT",
 	"icon": "assets/enchantcalc/icon.png",
@@ -19,7 +21,7 @@
 	],
 	"depends": {
 		"fabricloader": ">=0.16.0",
-		"fabric-api": "*",
+		"fabric-api": ">=0.136.0+1.21.8",
 		"minecraft": "~1.21.8"
 	}
 }

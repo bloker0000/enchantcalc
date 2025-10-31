@@ -1,5 +1,17 @@
 ﻿# Changelog
 
+## 1.0.1 - 2025-10-31
+
+### Fixed
+- UI overhaul: Fixed all layout and interaction issues
+- Improved calculate button responsiveness and reliability
+- Lazy initialization for enchantment registry
+
+### Improved
+- Dynamic panel sizing based on GUI scale
+- Better support for GUI scale x5
+- Better handling of enchanted books detection from inventory
+
 ## 1.0.0 - 2025-10-23
 
 ### Added

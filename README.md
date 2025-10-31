@@ -1,5 +1,7 @@
 # Enchant Calculator
 
+![Logo](https://cdn.modrinth.com/data/fYkrQpQQ/images/04137a29bb286c86b1960070f0865d547614909e_350.webp)
+
 Find the cheapest way to combine enchantments. This mod calculates the optimal order to avoid wasting levels and hitting "too expensive" errors.
 
 ---
@@ -14,6 +16,8 @@ Enchant Calculator is a client-side mod that solves one of Minecraft's most anno
 
 When you place an item in an anvil, the mod automatically shows you exactly how to combine your enchantments in the most efficient order. No more guessing, no more wasted levels, and no more frustration.
 
+![Showcase GIF](https://cdn.modrinth.com/data/fYkrQpQQ/images/4854c4e7436c6d6760d32d6f84a4a68ec3f0ed24.gif)
+
 _Yes, i know the icon is AI, i suck at design.._
 
 ## How to Use
@@ -22,11 +26,13 @@ _Yes, i know the icon is AI, i suck at design.._
 
 Two panels appear on the sides of your screen.
 
+![Left Panel Preview](https://cdn.modrinth.com/data/fYkrQpQQ/images/0628b390fd5ad369e963105d0d89c0858cbc97c9.png)
+
 **Step 2:** Select enchantments from the left panel
 
 The left panel displays all available enchantments you can add to your item. If you have enchanted books in your inventory, the mod shows which ones you have. Pick the enchantments you want and set their levels.
 
-![Select Enchants](https://cdn.modrinth.com/data/cached_images/00802df47a9db1b62988d8a283cf385b8f4c2721.png)
+![Right Panel Preview](https://cdn.modrinth.com/data/fYkrQpQQ/images/233e51de528310d3f819080051db90a1e285114d.png)
 
 **Step 3:** Click Calculate
 
@@ -36,7 +42,7 @@ The mod instantly analyzes hundreds or thousands of possible combination orders 
 
 The right panel shows you the exact order to combine your items. Each step tells you what to put in the anvil and where. Use the arrow buttons to move between steps.
 
-![Calculate](https://cdn.modrinth.com/data/cached_images/ee84f626bfea14cdb826340d829ff48c09af7691.png)
+![Selected Enchants Stacking](https://cdn.modrinth.com/data/fYkrQpQQ/images/d767a298496237744e131f9101589b0fb9a1d1fc_350.webp)
 
 ## Optimization Modes
 
@@ -58,6 +64,17 @@ Switch between modes using the mode button. The mod recalculates instantly when 
 - Tests all possible combination orders
 - Three optimization modes
 - Client-sided
+- Responsive GUI that adapts to different GUI scales
+
+## GUI Scale Compatibility
+
+The mod's interface should adapt to different GUI scales:
+
+**GUI Scale 4 and Below:**
+![GUI Scale 4 and Below](https://cdn.modrinth.com/data/fYkrQpQQ/images/f523fff48343498446ee7f32971d829607db81ae_350.webp)
+
+**GUI Scale 5+:**
+![GUI Scale 5 and Above](https://cdn.modrinth.com/data/fYkrQpQQ/images/60d00dd12dec51430a5a843c7c5740ddc5811cb8_350.webp)
 
 ## Technical Details
 
