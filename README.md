@@ -1,6 +1,6 @@
 # Enchant Calculator
 
-![Logo](https://cdn.modrinth.com/data/fYkrQpQQ/images/04137a29bb286c86b1960070f0865d547614909e_350.webp)
+<img src="https://raw.githubusercontent.com/bloker0000/enchantcalc/main/images/logo.png" alt="Logo" width="128">
 
 Find the cheapest way to put enchantments on an item. Open an anvil, pick the enchantments you want, and the mod shows the exact order to combine your books, so you spend as few levels as possible and never hit "Too Expensive!".
 
