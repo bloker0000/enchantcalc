@@ -1,39 +1,46 @@
-# Gradle
+# Gradle and build output (every version builds into versions/<mc>/build)
 .gradle/
+.kotlin/
 build/
+versions/*/build/
 gradle-app.setting
-!gradle-wrapper.jar
-gradle-wrapper.properties
-dist
+!gradle/wrapper/gradle-wrapper.jar
 
-# IDE
+# Minecraft dev run folders (worlds, logs, screenshots, options)
+run/
+runs/
+
+# IDEs
 .idea/
 *.iml
-*.iws
 *.ipr
+*.iws
 .vscode/
+.settings/
+.classpath
+.project
+.factorypath
+bin/
+out/
 *.swp
 *.swo
-*.swn
+
+# Java crash dumps and profiler output
+hs_err_*.log
+replay_*.log
+*.hprof
+*.jfr
+
+# Logs and scratch files
+*.log
+/build-*.txt
+images/*.zip
 
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Minecraft
-*.class
-*.log
-*.pot
-*.mo
-
-# Project
-bin/
-out/
-target/
-.classpath
-.project
-.settings/
-
-# Environment
+# Secrets (publishing tokens)
 .env
-.env.local
+.env.*

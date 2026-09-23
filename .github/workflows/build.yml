@@ -1,0 +1,107 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build all versions
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: gradle/actions/wrapper-validation@v6
+
+      # Java 21 compiles the 1.21.x versions, Java 25 runs Gradle and compiles 26.x.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: |
+            21
+            25
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Build and run unit tests
+        run: ./gradlew build buildAndCollect --stacktrace
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: enchantcalc-jars
+          path: build/libs/
+          if-no-files-found: error
+
+  gametest:
+    name: Game test ${{ matrix.minecraft }}
+    needs: build
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # Fabric's client game test API exists from 1.21.4.
+        minecraft: ["26.3", "26.2", "26.1.2", "1.21.11", "1.21.10", "1.21.8", "1.21.5", "1.21.4"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: |
+            21
+            25
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      # Loom runs the game under xvfb on Linux CI, so no display is needed.
+      - name: Run the client game test
+        run: ./gradlew :${{ matrix.minecraft }}:runClientGameTest --stacktrace
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: screenshots-${{ matrix.minecraft }}
+          path: |
+            versions/${{ matrix.minecraft }}/build/run/clientGameTest/screenshots/
+            versions/${{ matrix.minecraft }}/build/run/clientGameTest/logs/latest.log
+            versions/${{ matrix.minecraft }}/build/run/clientGameTest/crash-reports/
+          if-no-files-found: ignore
+
+  release:
+    name: GitHub release
+    needs: [build, gametest]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      # The notes are this version's section of CHANGELOG.md, the same text Modrinth shows.
+      - name: Release notes
+        id: notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v heading="## $version" '
+            /^## / { if (found) exit; if (index($0, heading) == 1) { found = 1; next } }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          test -s release-notes.md
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: enchantcalc-jars
+          path: dist
+
+      - uses: softprops/action-gh-release@v3
+        with:
+          name: EnchantCalc ${{ steps.notes.outputs.version }}
+          body_path: release-notes.md
+          files: dist/**/*.jar
